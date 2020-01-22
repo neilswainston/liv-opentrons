@@ -10,7 +10,6 @@ All rights reserved.
 # pylint: disable=too-few-public-methods
 import csv
 import os.path
-import sys
 
 from opentrons import protocol_api, simulate
 
@@ -45,10 +44,11 @@ class ProtocolWriter():
         self.__pipettes = pipettes
 
         # Get indexes of csv columns:
-        self.__src_plate_name_idx = headers.index('src_plate_name')
-        self.__dest_plate_name_idx = headers.index('dest_plate_name')
-        self.__src_plate_type_idx = headers.index('src_plate_type')
-        self.__dest_plate_type_idx = headers.index('dest_plate_type')
+        self.__src_plate_idxs = {'name': headers.index('src_plate_name'),
+                                 'type': headers.index('src_plate_type')}
+
+        self.__dest_plate_idxs = {'name': headers.index('dest_plate_name'),
+                                  'type': headers.index('dest_plate_type')}
 
     def write(self):
         '''Write protocol.'''
@@ -58,7 +58,7 @@ class ProtocolWriter():
 
         while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
             tip_racks.append(self.__protocol.load_labware(self.__tip_rack_type,
-                                                          _next_empty_slot(self.__protocol)))
+                                                          next_empty_slot(self.__protocol)))
 
         # Setup pipettes:
         for mount, instrument_name in self.__pipettes.items():
@@ -71,17 +71,16 @@ class ProtocolWriter():
 
     def __add_plates(self, row):
         '''Add plates.'''
+        self.__add_plate(row, self.__src_plate_idxs)
+        self.__add_plate(row, self.__dest_plate_idxs)
 
-        if not _is_added(row[self.__src_plate_name_idx], self.__protocol):
+    def __add_plate(self, row, idxs):
+        '''Add plate.'''
+        if not is_added(row[idxs['name']], self.__protocol):
             # Add plate:
-            self.__protocol.load_labware(row[self.__src_plate_type_idx],
-                                         _next_empty_slot(self.__protocol),
-                                         row[self.__src_plate_name_idx])
-        if not _is_added(row[self.__dest_plate_name_idx], self.__protocol):
-            # Add plate:
-            self.__protocol.load_labware(row[self.__dest_plate_type_idx],
-                                         _next_empty_slot(self.__protocol),
-                                         row[self.__dest_plate_name_idx])
+            self.__protocol.load_labware(row[idxs['type']],
+                                         next_empty_slot(self.__protocol),
+                                         row[idxs['name']])
 
 
 def _read_csv(filename):
@@ -103,7 +102,7 @@ def _read_csv(filename):
     return headers, rows
 
 
-def _next_empty_slot(protocol):
+def next_empty_slot(protocol):
     '''Get next empty slot.'''
     for slot, obj in protocol.deck.items():
         if not obj:
@@ -112,13 +111,13 @@ def _next_empty_slot(protocol):
     return None
 
 
-def _is_added(obj_name, protocol):
+def is_added(obj_name, protocol):
     '''Check if named object has been added to the deck.'''
     obj_names = [val.name for val in protocol.deck.values() if val]
     return obj_name in obj_names
 
 
-def main(args):
+def main():
     '''main method.'''
     filename = os.path.realpath(__file__)
 
@@ -128,4 +127,4 @@ def main(args):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()
