@@ -38,17 +38,10 @@ class ProtocolWriter():
         self.__protocol = protocol
 
         # Parse csv file:
-        headers, self.__rows = _read_csv(csv_filename)
+        self.__hdr_idxs, self.__rows = read_csv(csv_filename)
 
         self.__tip_rack_type = tip_rack_type
         self.__pipettes = pipettes
-
-        # Get indexes of csv columns:
-        self.__src_plate_idxs = {'name': headers.index('src_plate_name'),
-                                 'type': headers.index('src_plate_type')}
-
-        self.__dest_plate_idxs = {'name': headers.index('dest_plate_name'),
-                                  'type': headers.index('dest_plate_type')}
 
     def write(self):
         '''Write protocol.'''
@@ -67,26 +60,45 @@ class ProtocolWriter():
 
         # Add functions:
         for row in self.__rows:
-            self.__add_plates(row)
+            src_plate, dest_plate = self.__add_plates(row)
+            vol = float(row[self.__hdr_idxs['vol']])
+            pipette = get_pipette(vol, self.__protocol)
+
+            pipette.transfer(
+                vol,
+                src_plate[row[self.__hdr_idxs['src_well']]],
+                dest_plate[row[self.__hdr_idxs['dest_well']]])
 
     def __add_plates(self, row):
         '''Add plates.'''
-        self.__add_plate(row, self.__src_plate_idxs)
-        self.__add_plate(row, self.__dest_plate_idxs)
+        src = self.__add_plate(row, True)
+        dest = self.__add_plate(row, False)
 
-    def __add_plate(self, row, idxs):
+        return src, dest
+
+    def __add_plate(self, row, is_src):
         '''Add plate.'''
-        if not is_added(row[idxs['name']], self.__protocol):
-            # Add plate:
-            self.__protocol.load_labware(row[idxs['type']],
-                                         next_empty_slot(self.__protocol),
-                                         row[idxs['name']])
+        if is_src:
+            name_idx, type_idx = [self.__hdr_idxs[key]
+                                  for key in ['src_plate_name', 'src_plate_type']]
+        else:
+            name_idx, type_idx = [self.__hdr_idxs[key]
+                                  for key in ['dest_plate_name', 'dest_plate_type']]
+
+        obj = get_obj(row[name_idx], self.__protocol)
+
+        if obj:
+            return obj
+
+        return self.__protocol.load_labware(row[type_idx],
+                                            next_empty_slot(self.__protocol),
+                                            row[name_idx])
 
 
-def _read_csv(filename):
+def read_csv(filename, delimiter=','):
     '''Read csv.'''
     with open(filename) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
+        csv_reader = csv.reader(csv_file, delimiter=delimiter)
 
         header_line = True
         headers = None
@@ -99,7 +111,7 @@ def _read_csv(filename):
             else:
                 rows.append(row)
 
-    return headers, rows
+    return {header: idx for idx, header in enumerate(headers)}, rows
 
 
 def next_empty_slot(protocol):
@@ -111,10 +123,21 @@ def next_empty_slot(protocol):
     return None
 
 
-def is_added(obj_name, protocol):
-    '''Check if named object has been added to the deck.'''
-    obj_names = [val.name for val in protocol.deck.values() if val]
-    return obj_name in obj_names
+def get_obj(obj_name, protocol):
+    '''Get object.'''
+    for val in protocol.deck.values():
+        if val and val.name == obj_name:
+            return val
+
+    return None
+
+
+def get_pipette(vol, protocol):
+    '''Get appropriate pipette for volume.'''
+    valid_pipettes = [pip for pip in protocol.loaded_instruments.values()
+                      if pip.min_volume <= vol <= pip.max_volume]
+
+    return valid_pipettes[0] if valid_pipettes else None
 
 
 def main():
@@ -122,7 +145,7 @@ def main():
     filename = os.path.realpath(__file__)
 
     with open(filename) as protocol_file:
-        runlog = simulate.simulate(protocol_file, filename)
+        runlog, _ = simulate.simulate(protocol_file, filename)
         print(simulate.format_runlog(runlog))
 
 
