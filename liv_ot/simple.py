@@ -67,7 +67,8 @@ class ProtocolWriter():
             pipette.transfer(
                 vol,
                 src_plate[row[self.__hdr_idxs['src_well']]],
-                dest_plate[row[self.__hdr_idxs['dest_well']]])
+                dest_plate[row[self.__hdr_idxs['dest_well']]],
+                new_tip='once')
 
     def __add_plates(self, row):
         '''Add plates.'''
