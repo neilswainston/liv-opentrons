@@ -11,6 +11,7 @@ All rights reserved.
 import csv
 import json
 import os.path
+from urllib.request import urlopen
 
 from opentrons import simulate
 
@@ -28,15 +29,16 @@ class ProtocolWriter():
     '''Class to write protocol from CSV file.'''
 
     def __init__(self, protocol,
-                 csv_filename='data/worklist.csv',
-                 setup_filename='data/setup.json'):
+                 setup_url='http://bit.ly/genemill-ot-setup',
+                 wrklst_url='http://bit.ly/genemill-ot-worklist'):
         self.__protocol = protocol
 
-        # Parse csv file:
-        self.__hdr_idxs, self.__rows = read_csv(csv_filename)
-
-        with open(setup_filename) as setup_file:
+        # Parse setup:
+        with urlopen(setup_url) as setup_file:
             self.__setup = json.load(setup_file)
+
+        # Parse csv file:
+        self.__hdr_idxs, self.__rows = read_csv(wrklst_url)
 
     def write(self):
         '''Write protocol.'''
@@ -108,10 +110,10 @@ class ProtocolWriter():
                                             row[name_idx])
 
 
-def read_csv(filename, delimiter=','):
+def read_csv(wrklst_url):
     '''Read csv.'''
-    with open(filename) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=delimiter)
+    with urlopen(wrklst_url) as wrklst_file:
+        csv_reader = csv.reader(wrklst_file.read().decode().splitlines())
 
         header_line = True
         headers = None
@@ -124,7 +126,7 @@ def read_csv(filename, delimiter=','):
             else:
                 rows.append(row)
 
-    return {header: idx for idx, header in enumerate(headers)}, rows
+        return {header: idx for idx, header in enumerate(headers)}, rows
 
 
 def next_empty_slot(protocol):
