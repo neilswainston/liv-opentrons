@@ -41,17 +41,8 @@ class ProtocolWriter():
     def write(self):
         '''Write protocol.'''
 
-        #`Setup tip_racks, ensuring a sufficient number:
-        tip_racks = []
-
-        while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
-            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
-                                                          next_empty_slot(self.__protocol)))
-
-        # Setup pipettes:
-        for mount, instrument_name in self.__setup['pipettes'].items():
-            self.__protocol.load_instrument(
-                instrument_name, mount, tip_racks=tip_racks)
+        # Setup:
+        self.__do_setup()
 
         # Add functions:
         for row in self.__rows:
@@ -64,6 +55,20 @@ class ProtocolWriter():
                 src_plate[row[self.__hdr_idxs['src_well']]],
                 dest_plate[row[self.__hdr_idxs['dest_well']]],
                 new_tip='once')
+
+    def __do_setup(self):
+        '''Setup.'''
+        #`Setup tip_racks, ensuring a sufficient number:
+        tip_racks = []
+
+        while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
+            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
+                                                          next_empty_slot(self.__protocol)))
+
+        # Setup pipettes:
+        for mount, instrument_name in self.__setup['pipettes'].items():
+            self.__protocol.load_instrument(
+                instrument_name, mount, tip_racks=tip_racks)
 
     def __add_plates(self, row):
         '''Add plates.'''
