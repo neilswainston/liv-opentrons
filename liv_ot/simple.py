@@ -49,6 +49,24 @@ class ProtocolWriter():
         self.__do_setup()
 
         # Add functions:
+        self.__add_funcs()
+
+    def __do_setup(self):
+        '''Setup.'''
+        #`Setup tip_racks, ensuring a sufficient number:
+        tip_racks = []
+
+        while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
+            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
+                                                          next_empty_slot(self.__protocol)))
+
+        # Setup pipettes:
+        for mount, instrument_name in self.__setup['pipettes'].items():
+            self.__protocol.load_instrument(
+                instrument_name, mount, tip_racks=tip_racks)
+
+    def __add_funcs(self):
+        '''Add functions.'''
         src_plates = []
         dst_plates = []
         src_wells = []
@@ -65,26 +83,10 @@ class ProtocolWriter():
 
         pipette = get_pipette(vols, self.__protocol)
 
-        # if len(set(src_plates)) == 1 and len(set(src_wells)):
-
         pipette.transfer(
             vols,
             [plate[well] for plate, well in zip(src_plates, src_wells)],
             [plate[well] for plate, well in zip(dst_plates, dst_wells)])
-
-    def __do_setup(self):
-        '''Setup.'''
-        #`Setup tip_racks, ensuring a sufficient number:
-        tip_racks = []
-
-        while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
-            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
-                                                          next_empty_slot(self.__protocol)))
-
-        # Setup pipettes:
-        for mount, instrument_name in self.__setup['pipettes'].items():
-            self.__protocol.load_instrument(
-                instrument_name, mount, tip_racks=tip_racks)
 
     def __add_plates(self, row):
         '''Add plates.'''
@@ -112,10 +114,10 @@ class ProtocolWriter():
                                             row[name_idx])
 
 
-def read_csv(wrklst_url):
+def read_csv(csv_url):
     '''Read csv.'''
-    with urlopen(wrklst_url) as wrklst_file:
-        csv_reader = csv.reader(wrklst_file.read().decode().splitlines())
+    with urlopen(csv_url) as csv_file:
+        csv_reader = csv.reader(csv_file.read().decode().splitlines())
 
         header_line = True
         headers = None
