@@ -1,0 +1,6 @@
+{
+	"tip_rack_type": "opentrons_96_tiprack_300ul",
+	"pipettes": {
+		"left": "p1000_single"
+	}
+}

@@ -9,39 +9,34 @@ All rights reserved.
 # pylint: disable=protected-access
 # pylint: disable=too-few-public-methods
 import csv
+import json
 import os.path
 
-from opentrons import protocol_api, simulate
+from opentrons import simulate
 
 
 metadata = {'apiLevel': '2.0'}
 
 
-def run(protocol: protocol_api.ProtocolContext):
+def run(protocol):
     '''Run protocol.'''
-    writer = ProtocolWriter(protocol,
-                            csv_filename='data/worklist.csv',
-                            tip_rack_type='opentrons_96_tiprack_300ul',
-                            pipettes={'left': 'p1000_single'})
+    writer = ProtocolWriter(protocol)
     writer.write()
-
-    # p300.transfer(100, plate['A1'], plate['B1'])
 
 
 class ProtocolWriter():
     '''Class to write protocol from CSV file.'''
 
     def __init__(self, protocol,
-                 csv_filename,
-                 tip_rack_type,
-                 pipettes):
+                 csv_filename='data/worklist.csv',
+                 setup_filename='data/setup.json'):
         self.__protocol = protocol
 
         # Parse csv file:
         self.__hdr_idxs, self.__rows = read_csv(csv_filename)
 
-        self.__tip_rack_type = tip_rack_type
-        self.__pipettes = pipettes
+        with open(setup_filename) as setup_file:
+            self.__setup = json.load(setup_file)
 
     def write(self):
         '''Write protocol.'''
@@ -50,11 +45,11 @@ class ProtocolWriter():
         tip_racks = []
 
         while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
-            tip_racks.append(self.__protocol.load_labware(self.__tip_rack_type,
+            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
                                                           next_empty_slot(self.__protocol)))
 
         # Setup pipettes:
-        for mount, instrument_name in self.__pipettes.items():
+        for mount, instrument_name in self.__setup['pipettes'].items():
             self.__protocol.load_instrument(
                 instrument_name, mount, tip_racks=tip_racks)
 
