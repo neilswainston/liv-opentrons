@@ -16,7 +16,9 @@ from urllib.request import urlopen
 from opentrons import simulate
 
 
-metadata = {'apiLevel': '2.0'}
+metadata = {'apiLevel': '2.0',
+            'author': 'Neil Swainston <neil.swainston@liverpool.ac.uk>',
+            'description': 'simple'}
 
 
 def run(protocol):
