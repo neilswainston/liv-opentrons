@@ -1,6 +1,11 @@
 {
-	"tip_rack_type": "opentrons_96_tiprack_300ul",
+	"tip_racks": [
+			{
+				"type": "opentrons_96_filtertiprack_1000ul",
+				"start_at_tip": "B1"
+			}
+		],
 	"pipettes": {
-		"left": "p1000_single"
-	}
+			"right": "p1000_single"
+		}
 }

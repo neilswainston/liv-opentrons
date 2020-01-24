@@ -53,17 +53,22 @@ class ProtocolWriter():
 
     def __do_setup(self):
         '''Setup.'''
-        #`Setup tip_racks, ensuring a sufficient number:
-        tip_racks = []
 
-        while sum([len(tip_rack._wells) for tip_rack in tip_racks]) < len(self.__rows):
-            tip_racks.append(self.__protocol.load_labware(self.__setup['tip_rack_type'],
-                                                          next_empty_slot(self.__protocol)))
+        #`Setup tip racks:
+        tip_racks = {}
+
+        for tip_rack_def in self.__setup['tip_racks']:
+            tip_rack = self.__protocol.load_labware(tip_rack_def['type'],
+                                                    next_empty_slot(self.__protocol))
+            tip_racks[tip_rack] = tip_rack_def.get('start_at_tip', 'A1')
 
         # Setup pipettes:
         for mount, instrument_name in self.__setup['pipettes'].items():
-            self.__protocol.load_instrument(
-                instrument_name, mount, tip_racks=tip_racks)
+            pipette = self.__protocol.load_instrument(
+                instrument_name, mount, tip_racks=list(tip_racks))
+
+            for tip_rack, start_at_tip in tip_racks.items():
+                pipette.starting_tip = tip_rack[start_at_tip]
 
     def __add_funcs(self):
         '''Add functions.'''
@@ -83,7 +88,7 @@ class ProtocolWriter():
 
         pipette = get_pipette(vols, self.__protocol)
 
-        pipette.transfer(
+        pipette.distribute(
             vols,
             [plate[well] for plate, well in zip(src_plates, src_wells)],
             [plate[well] for plate, well in zip(dst_plates, dst_wells)])
