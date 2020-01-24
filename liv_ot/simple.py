@@ -77,6 +77,7 @@ class ProtocolWriter():
         src_wells = []
         dst_wells = []
         vols = []
+        tops = []
 
         for row in self.__rows:
             src_plate, dst_plate = self.__add_plates(row)
@@ -85,13 +86,14 @@ class ProtocolWriter():
             src_wells.append(row[self.__hdr_idxs['src_well']])
             dst_wells.append(row[self.__hdr_idxs['dst_well']])
             vols.append(float(row[self.__hdr_idxs['vol']]))
+            tops.append(float(row[self.__hdr_idxs['top']]))
 
         pipette = get_pipette(vols, self.__protocol)
 
         pipette.distribute(
             vols,
             [plate[well] for plate, well in zip(src_plates, src_wells)],
-            [plate[well] for plate, well in zip(dst_plates, dst_wells)])
+            [plate[well].top(top) for plate, well, top in zip(dst_plates, dst_wells, tops)])
 
     def __add_plates(self, row):
         '''Add plates.'''
