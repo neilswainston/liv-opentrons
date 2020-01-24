@@ -1,4 +1,4 @@
-src_plate_name,src_plate_type,src_well,dest_plate_name,dest_plate_type,dest_well,vol
+src_plate_name,src_plate_type,src_well,dst_plate_name,dst_plate_type,dst_well,vol
 plate_1,corning_96_wellplate_360ul_flat,A1,plate_2,corning_96_wellplate_360ul_flat,A1,200
 plate_1,corning_96_wellplate_360ul_flat,A1,plate_2,corning_96_wellplate_360ul_flat,B1,250
 plate_1,corning_96_wellplate_360ul_flat,A1,plate_2,corning_96_wellplate_360ul_flat,C1,190

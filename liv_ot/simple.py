@@ -45,16 +45,28 @@ class ProtocolWriter():
         self.__do_setup()
 
         # Add functions:
-        for row in self.__rows:
-            src_plate, dest_plate = self.__add_plates(row)
-            vol = float(row[self.__hdr_idxs['vol']])
-            pipette = get_pipette(vol, self.__protocol)
+        src_plates = []
+        dst_plates = []
+        src_wells = []
+        dst_wells = []
+        vols = []
 
-            pipette.transfer(
-                vol,
-                src_plate[row[self.__hdr_idxs['src_well']]],
-                dest_plate[row[self.__hdr_idxs['dest_well']]],
-                new_tip='once')
+        for row in self.__rows:
+            src_plate, dst_plate = self.__add_plates(row)
+            src_plates.append(src_plate)
+            dst_plates.append(dst_plate)
+            src_wells.append(row[self.__hdr_idxs['src_well']])
+            dst_wells.append(row[self.__hdr_idxs['dst_well']])
+            vols.append(float(row[self.__hdr_idxs['vol']]))
+
+        pipette = get_pipette(vols, self.__protocol)
+
+        # if len(set(src_plates)) == 1 and len(set(src_wells)):
+
+        pipette.transfer(
+            vols,
+            [plate[well] for plate, well in zip(src_plates, src_wells)],
+            [plate[well] for plate, well in zip(dst_plates, dst_wells)])
 
     def __do_setup(self):
         '''Setup.'''
@@ -84,7 +96,7 @@ class ProtocolWriter():
                                   for key in ['src_plate_name', 'src_plate_type']]
         else:
             name_idx, type_idx = [self.__hdr_idxs[key]
-                                  for key in ['dest_plate_name', 'dest_plate_type']]
+                                  for key in ['dst_plate_name', 'dst_plate_type']]
 
         obj = get_obj(row[name_idx], self.__protocol)
 
@@ -133,12 +145,24 @@ def get_obj(obj_name, protocol):
     return None
 
 
-def get_pipette(vol, protocol):
+def get_pipette(vols, protocol):
     '''Get appropriate pipette for volume.'''
-    valid_pipettes = [pip for pip in protocol.loaded_instruments.values()
-                      if pip.min_volume <= vol <= pip.max_volume]
 
-    return valid_pipettes[0] if valid_pipettes else None
+    # Ensure pipette is appropriate for minimum volume:
+    valid_pipettes = [pip for pip in protocol.loaded_instruments.values()
+                      if pip.min_volume <= min(vols)]
+
+    if not valid_pipettes:
+        return None
+
+    # Calculate number of operations per pipette:
+    num_ops = {pip: sum([vol // pip.max_volume for vol in vols])
+               for pip in valid_pipettes}
+
+    num_ops = {k: v for k, v in sorted(
+        num_ops.items(), key=lambda item: item[1])}
+
+    return next(iter(num_ops))
 
 
 def main():
