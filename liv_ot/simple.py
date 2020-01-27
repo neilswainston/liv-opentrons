@@ -87,7 +87,9 @@ class ProtocolWriter():
             src_wells.append(row[self.__hdr_idxs['src_well']])
             dst_wells.append(row[self.__hdr_idxs['dst_well']])
             vols.append(float(row[self.__hdr_idxs['vol']]))
-            tops.append(float(row[self.__hdr_idxs['top']]))
+
+            if 'top' in self.__hdr_idxs:
+                tops.append(float(row[self.__hdr_idxs['top']]))
 
         pipette = get_pipette(vols, self.__protocol)
 
