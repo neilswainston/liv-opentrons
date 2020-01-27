@@ -54,12 +54,13 @@ class ProtocolWriter():
     def __do_setup(self):
         '''Setup.'''
 
-        #`Setup tip racks:
+        # Setup tip racks:
         tip_racks = {}
 
         for tip_rack_def in self.__setup['tip_racks']:
-            tip_rack = self.__protocol.load_labware(tip_rack_def['type'],
-                                                    next_empty_slot(self.__protocol))
+            tip_rack = self.__protocol.load_labware(
+                tip_rack_def['type'],
+                next_empty_slot(self.__protocol))
             tip_racks[tip_rack] = tip_rack_def.get('start_at_tip', 'A1')
 
         # Setup pipettes:
@@ -90,10 +91,17 @@ class ProtocolWriter():
 
         pipette = get_pipette(vols, self.__protocol)
 
+        if tops:
+            dests = [plate[well].top(top)
+                     for plate, well, top in zip(dst_plates, dst_wells, tops)]
+        else:
+            dests = [plate[well]
+                     for plate, well in zip(dst_plates, dst_wells)]
+
         pipette.distribute(
             vols,
             [plate[well] for plate, well in zip(src_plates, src_wells)],
-            [plate[well].top(top) for plate, well, top in zip(dst_plates, dst_wells, tops)])
+            dests)
 
     def __add_plates(self, row):
         '''Add plates.'''
@@ -105,11 +113,13 @@ class ProtocolWriter():
     def __add_plate(self, row, is_src):
         '''Add plate.'''
         if is_src:
-            name_idx, type_idx = [self.__hdr_idxs[key]
-                                  for key in ['src_plate_name', 'src_plate_type']]
+            name_idx, type_idx = \
+                [self.__hdr_idxs[key]
+                 for key in ['src_plate_name', 'src_plate_type']]
         else:
-            name_idx, type_idx = [self.__hdr_idxs[key]
-                                  for key in ['dst_plate_name', 'dst_plate_type']]
+            name_idx, type_idx = \
+                [self.__hdr_idxs[key]
+                 for key in ['dst_plate_name', 'dst_plate_type']]
 
         obj = get_obj(row[name_idx], self.__protocol)
 
