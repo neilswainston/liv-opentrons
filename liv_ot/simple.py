@@ -103,7 +103,9 @@ class ProtocolWriter():
         pipette.distribute(
             vols,
             [plate[well] for plate, well in zip(src_plates, src_wells)],
-            dests)
+            dests,
+            touch_tip=True,
+            disposal_volume=50)
 
     def __add_plates(self, row):
         '''Add plates.'''
