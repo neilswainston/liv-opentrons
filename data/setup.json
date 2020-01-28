@@ -1,11 +1,21 @@
 {
 	"tip_racks": [
-			{
-				"type": "opentrons_96_filtertiprack_1000ul",
-				"start_at_tip": "B1"
-			}
-		],
-	"pipettes": {
-			"right": "p1000_single"
+		{
+			"type": "opentrons_96_filtertiprack_1000ul",
+			"start_at_tip": "E1"
 		}
+	],
+	"pipettes": {
+		"right": "p1000_single"
+	},
+	"plates": [
+		{
+			"name": "plate_1",
+			"type": "agilent_1_reservoir_290ml"
+		},
+		{
+			"name": "plate_2",
+			"type": "4ti_96_wellplate_350ul"
+		}
+	]
 }

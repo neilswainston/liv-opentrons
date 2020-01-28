@@ -8,12 +8,14 @@ All rights reserved.
 # pylint: disable=invalid-name
 # pylint: disable=protected-access
 # pylint: disable=too-few-public-methods
-import csv
+from functools import partial
 import json
 import os.path
 from urllib.request import urlopen
 
 from opentrons import simulate
+
+import pandas as pd
 
 
 metadata = {'apiLevel': '2.0',
@@ -40,7 +42,7 @@ class ProtocolWriter():
             self.__setup = json.load(setup_file)
 
         # Parse csv file:
-        self.__hdr_idxs, self.__rows = read_csv(wrklst_url)
+        self.__df = pd.read_csv(wrklst_url)
 
     def write(self):
         '''Write protocol.'''
@@ -93,40 +95,18 @@ class ProtocolWriter():
 
     def __add_funcs(self):
         '''Add functions.'''
-        src_plates = []
-        dst_plates = []
-        src_wells = []
-        dst_wells = []
-        vols = []
-        tops = []
+        get_src_well = partial(
+            _get_well, protocol=self.__protocol, is_src=True)
 
-        for row in self.__rows:
-            src_plate = get_obj(
-                row[self.__hdr_idxs['src_plate_name']], self.__protocol)
-            dst_plate = get_obj(
-                row[self.__hdr_idxs['dst_plate_name']], self.__protocol)
-            src_plates.append(src_plate)
-            dst_plates.append(dst_plate)
-            src_wells.append(row[self.__hdr_idxs['src_well']])
-            dst_wells.append(row[self.__hdr_idxs['dst_well']])
-            vols.append(float(row[self.__hdr_idxs['vol']]))
+        get_dst_well = partial(
+            _get_well, protocol=self.__protocol, is_src=False)
 
-            if 'dst_top' in self.__hdr_idxs:
-                tops.append(float(row[self.__hdr_idxs['dst_top']]))
-
-        pipette = get_pipette(vols, self.__protocol)
-
-        if tops:
-            dests = [plate[well].top(top)
-                     for plate, well, top in zip(dst_plates, dst_wells, tops)]
-        else:
-            dests = [plate[well]
-                     for plate, well in zip(dst_plates, dst_wells)]
+        pipette = self.__get_pipette()
 
         pipette.distribute(
-            vols,
-            [plate[well] for plate, well in zip(src_plates, src_wells)],
-            dests,
+            self.__df['vol'].tolist(),
+            self.__df.apply(get_src_well, axis=1).tolist(),
+            self.__df.apply(get_dst_well, axis=1).tolist(),
             touch_tip=True,
             disposal_volume=50)
 
@@ -138,27 +118,29 @@ class ProtocolWriter():
 
         return None
 
+    def __get_pipette(self):
+        '''Get appropriate pipette for volume.'''
+        vols = self.__df['vol']
 
-def read_csv(csv_url):
-    '''Read csv.'''
-    with urlopen(csv_url) as csv_file:
-        csv_reader = csv.reader(csv_file.read().decode().splitlines())
+        # Ensure pipette is appropriate for minimum volume:
+        valid_pipettes = \
+            [pip for pip in self.__protocol.loaded_instruments.values()
+             if pip.min_volume <= min(vols)]
 
-        header_line = True
-        headers = None
-        rows = []
+        if not valid_pipettes:
+            return None
 
-        for row in csv_reader:
-            if header_line:
-                headers = row
-                header_line = False
-            else:
-                rows.append(row)
+        # Calculate number of operations per pipette:
+        num_ops = {pip: sum([vol // pip.max_volume for vol in vols])
+                   for pip in valid_pipettes}
 
-        return {header: idx for idx, header in enumerate(headers)}, rows
+        num_ops = {k: v for k, v in sorted(
+            num_ops.items(), key=lambda item: item[1])}
+
+        return next(iter(num_ops))
 
 
-def get_obj(obj_name, protocol):
+def _get_obj(obj_name, protocol):
     '''Get object.'''
     for val in protocol.deck.values():
         if val and val.name == obj_name:
@@ -167,24 +149,21 @@ def get_obj(obj_name, protocol):
     return None
 
 
-def get_pipette(vols, protocol):
-    '''Get appropriate pipette for volume.'''
+def _get_well(row, protocol, is_src=True):
+    '''Get well.'''
+    prefix = 'src' if is_src else 'dst'
+    plate = _get_obj(row['%s_plate_name' % prefix], protocol)
+    well = plate[row['%s_well' % prefix]]
 
-    # Ensure pipette is appropriate for minimum volume:
-    valid_pipettes = [pip for pip in protocol.loaded_instruments.values()
-                      if pip.min_volume <= min(vols)]
+    top = '%s_top' % prefix
+    bottom = '%s_bottom' % prefix
 
-    if not valid_pipettes:
-        return None
+    if top in row:
+        well.top(row[top])
+    elif bottom in row:
+        well.bottom(row[bottom])
 
-    # Calculate number of operations per pipette:
-    num_ops = {pip: sum([vol // pip.max_volume for vol in vols])
-               for pip in valid_pipettes}
-
-    num_ops = {k: v for k, v in sorted(
-        num_ops.items(), key=lambda item: item[1])}
-
-    return next(iter(num_ops))
+    return well
 
 
 def main():
