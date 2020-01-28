@@ -11,6 +11,7 @@ All rights reserved.
 from functools import partial
 import json
 import os.path
+import random
 from urllib.request import urlopen
 
 from opentrons import simulate
@@ -34,7 +35,8 @@ class ProtocolWriter():
 
     def __init__(self, protocol,
                  setup_url='http://bit.ly/genemill-ot-setup',
-                 wrklst_url='http://bit.ly/genemill-ot-worklist'):
+                 wrklst_url='http://bit.ly/genemill-ot-worklist',
+                 random_dests=True):
         self.__protocol = protocol
 
         # Parse setup:
@@ -43,6 +45,9 @@ class ProtocolWriter():
 
         # Parse csv file:
         self.__df = pd.read_csv(wrklst_url)
+
+        # Set randomise destinations:
+        self.__random_dests = random_dests
 
     def write(self):
         '''Write protocol.'''
@@ -95,10 +100,12 @@ class ProtocolWriter():
 
     def __add_funcs(self):
         '''Add functions.'''
+        self.__process_wklst()
+
         get_src_well = partial(
             _get_well, protocol=self.__protocol, is_src=True)
 
-        get_dst_well = partial(
+        get_dest_well = partial(
             _get_well, protocol=self.__protocol, is_src=False)
 
         pipette = self.__get_pipette()
@@ -106,9 +113,27 @@ class ProtocolWriter():
         pipette.distribute(
             self.__df['vol'].tolist(),
             self.__df.apply(get_src_well, axis=1).tolist(),
-            self.__df.apply(get_dst_well, axis=1).tolist(),
+            self.__df.apply(get_dest_well, axis=1).tolist(),
             touch_tip=True,
             disposal_volume=50)
+
+    def __process_wklst(self):
+        '''Process worklist.'''
+        dfs = []
+
+        if 'dest_well' not in self.__df:
+            for plate, df in self.__df.groupby('dest_plate'):
+                df = df.copy()
+                plate = _get_obj(plate, self.__protocol)
+                wells = [well for well in plate._ordering]
+
+                if self.__random_dests:
+                    random.shuffle(wells)
+
+                df['dest_well'] = wells[:len(df.index)]
+                dfs.append(df)
+
+        self.__df = pd.concat(dfs)
 
     def __next_empty_slot(self):
         '''Get next empty slot.'''
@@ -151,8 +176,8 @@ def _get_obj(obj_name, protocol):
 
 def _get_well(row, protocol, is_src=True):
     '''Get well.'''
-    prefix = 'src' if is_src else 'dst'
-    plate = _get_obj(row['%s_plate_name' % prefix], protocol)
+    prefix = 'src' if is_src else 'dest'
+    plate = _get_obj(row['%s_plate' % prefix], protocol)
     well = plate[row['%s_well' % prefix]]
 
     top = '%s_top' % prefix

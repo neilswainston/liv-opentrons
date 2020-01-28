@@ -94,34 +94,35 @@ class ProtocolWriter():
     def __add_funcs(self):
         '''Add functions.'''
         src_plates = []
-        dst_plates = []
+        dest_plates = []
         src_wells = []
-        dst_wells = []
+        dest_wells = []
         vols = []
         tops = []
 
         for row in self.__rows:
             src_plate = get_obj(
-                row[self.__hdr_idxs['src_plate_name']], self.__protocol)
-            dst_plate = get_obj(
-                row[self.__hdr_idxs['dst_plate_name']], self.__protocol)
+                row[self.__hdr_idxs['src_plate']], self.__protocol)
+            dest_plate = get_obj(
+                row[self.__hdr_idxs['dest_plate']], self.__protocol)
             src_plates.append(src_plate)
-            dst_plates.append(dst_plate)
+            dest_plates.append(dest_plate)
             src_wells.append(row[self.__hdr_idxs['src_well']])
-            dst_wells.append(row[self.__hdr_idxs['dst_well']])
+            dest_wells.append(row[self.__hdr_idxs['dest_well']])
             vols.append(float(row[self.__hdr_idxs['vol']]))
 
-            if 'dst_top' in self.__hdr_idxs:
-                tops.append(float(row[self.__hdr_idxs['dst_top']]))
+            if 'dest_top' in self.__hdr_idxs:
+                tops.append(float(row[self.__hdr_idxs['dest_top']]))
 
         pipette = get_pipette(vols, self.__protocol)
 
         if tops:
-            dests = [plate[well].top(top)
-                     for plate, well, top in zip(dst_plates, dst_wells, tops)]
+            dests = \
+                [plate[well].top(top)
+                 for plate, well, top in zip(dest_plates, dest_wells, tops)]
         else:
             dests = [plate[well]
-                     for plate, well in zip(dst_plates, dst_wells)]
+                     for plate, well in zip(dest_plates, dest_wells)]
 
         pipette.distribute(
             vols,
